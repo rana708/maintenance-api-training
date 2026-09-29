@@ -23,6 +23,7 @@ class MaintenanceRequest extends Model
         'title',
         'description',
         'status',
+        'priority',
         'scheduled_at',
         'completed_at',
     ];
