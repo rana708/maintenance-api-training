@@ -1,0 +1,879 @@
+openapi: 3.0.3
+info:
+  title: Maintenance Requests API
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  description: |
+    REST API for HVAC maintenance management.
+    Covers customer and location management, maintenance request lifecycle,
+    technician assignment, spare-part hold workflow, seasonal contract visits,
+    and technical reporting.
+servers:
+  - url: /api/v1
+    description: Base API path
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [Auth]
+      summary: Login and issue bearer token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [Customers]
+      summary: List customers
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Paginated customers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCustomerResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createCustomer
+      tags: [Customers]
+      summary: Create customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerCreateRequest'
+      responses:
+        '201':
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /customers/{customerId}/locations:
+    get:
+      operationId: listCustomerLocations
+      tags: [CustomerLocations]
+      summary: List customer locations
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdParam'
+      responses:
+        '200':
+          description: Locations list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CustomerLocation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createCustomerLocation
+      tags: [CustomerLocations]
+      summary: Add a new customer location
+      parameters:
+        - $ref: '#/components/parameters/CustomerIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerLocationCreateRequest'
+      responses:
+        '201':
+          description: Location created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerLocation'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /contracts:
+    get:
+      operationId: listMaintenanceContracts
+      tags: [MaintenanceContracts]
+      summary: List annual maintenance contracts
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Contracts list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedContractResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: createMaintenanceContract
+      tags: [MaintenanceContracts]
+      summary: Create annual maintenance contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaintenanceContractCreateRequest'
+      responses:
+        '201':
+          description: Contract created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceContract'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /contracts/{contractId}/visits:
+    get:
+      operationId: listContractVisitSchedules
+      tags: [ContractVisits]
+      summary: List generated seasonal visits for a contract
+      parameters:
+        - $ref: '#/components/parameters/ContractIdParam'
+      responses:
+        '200':
+          description: Seasonal visits list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContractVisitSchedule'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /requests:
+    get:
+      operationId: listMaintenanceRequests
+      tags: [MaintenanceRequests]
+      summary: List maintenance requests
+      description: Dispatchers see all requests; technicians see only their assigned requests.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/StatusParam'
+        - $ref: '#/components/parameters/PriorityParam'
+      responses:
+        '200':
+          description: Paginated maintenance requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRequestResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createMaintenanceRequest
+      tags: [MaintenanceRequests]
+      summary: Create maintenance request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaintenanceRequestCreateRequest'
+      responses:
+        '201':
+          description: Request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /requests/{maintenanceRequest}:
+    get:
+      operationId: getMaintenanceRequest
+      tags: [MaintenanceRequests]
+      summary: Fetch maintenance request
+      parameters:
+        - $ref: '#/components/parameters/MaintenanceRequestIdParam'
+      responses:
+        '200':
+          description: Request details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MaintenanceRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /requests/{maintenanceRequest}/assign:
+    post:
+      operationId: assignTechniciansToRequest
+      tags: [Assignments]
+      summary: Assign one or two technicians to a request
+      parameters:
+        - $ref: '#/components/parameters/MaintenanceRequestIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignTechnicianRequest'
+      responses:
+        '200':
+          description: Request assigned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Scheduling conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /requests/{maintenanceRequest}/status:
+    patch:
+      operationId: updateMaintenanceRequestStatus
+      tags: [Status]
+      summary: Update request status
+      parameters:
+        - $ref: '#/components/parameters/MaintenanceRequestIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRequestStatusRequest'
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /requests/{maintenanceRequest}/spare-parts:
+    post:
+      operationId: createSparePartRequest
+      tags: [SpareParts]
+      summary: Register spare-part hold for a request
+      parameters:
+        - $ref: '#/components/parameters/MaintenanceRequestIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SparePartRequestCreateRequest'
+      responses:
+        '201':
+          description: Spare-part request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SparePartRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /requests/{maintenanceRequest}/report:
+    post:
+      operationId: createMaintenanceRequestReport
+      tags: [Reports]
+      summary: Submit technician final report and close request
+      parameters:
+        - $ref: '#/components/parameters/MaintenanceRequestIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestReportCreateRequest'
+      responses:
+        '201':
+          description: Report created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestReport'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PageParam:
+      in: query
+      name: page
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Page index for pagination.
+    PerPageParam:
+      in: query
+      name: per_page
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 15
+      description: Number of items per page.
+    StatusParam:
+      in: query
+      name: status
+      required: false
+      schema:
+        type: string
+        enum: [new, assigned, in_progress, pending_spare_parts, completed, cancelled, reassigned]
+    PriorityParam:
+      in: query
+      name: priority
+      required: false
+      schema:
+        type: string
+        enum: [normal, emergency]
+    CustomerIdParam:
+      in: path
+      name: customerId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    ContractIdParam:
+      in: path
+      name: contractId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    MaintenanceRequestIdParam:
+      in: path
+      name: maintenanceRequest
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: User does not have required role or permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Validation failed.
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      required: [message]
+
+    PaginationMeta:
+      type: object
+      properties:
+        current_page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        last_page:
+          type: integer
+      required: [current_page, per_page, total, last_page]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: dispatcher@example.com
+        password:
+          type: string
+          format: password
+          example: password
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+      required: [token, user]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, dispatcher, technician]
+        phone:
+          type: string
+          nullable: true
+      required: [id, name, email, role]
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        phone_number:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [id, name, phone_number]
+
+    CustomerCreateRequest:
+      type: object
+      required: [name, phone_number]
+      properties:
+        name:
+          type: string
+        phone_number:
+          type: string
+        address:
+          type: string
+          nullable: true
+
+    CustomerLocation:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        customer_id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        address:
+          type: string
+        gps_coordinates:
+          type: string
+          nullable: true
+        is_primary:
+          type: boolean
+      required: [id, customer_id, title, address]
+
+    CustomerLocationCreateRequest:
+      type: object
+      required: [title, address]
+      properties:
+        title:
+          type: string
+        address:
+          type: string
+        gps_coordinates:
+          type: string
+          nullable: true
+        is_primary:
+          type: boolean
+          default: false
+
+    MaintenanceContract:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        customer_id:
+          type: integer
+          format: int64
+        contract_start:
+          type: string
+          format: date
+        contract_end:
+          type: string
+          format: date
+        total_annual_visits:
+          type: integer
+        remaining_visits:
+          type: integer
+        status:
+          type: string
+          enum: [active, expired, cancelled]
+      required: [id, customer_id, contract_start, contract_end, total_annual_visits, remaining_visits, status]
+
+    MaintenanceContractCreateRequest:
+      type: object
+      required: [customer_id, contract_start, contract_end, total_annual_visits]
+      properties:
+        customer_id:
+          type: integer
+          format: int64
+        contract_start:
+          type: string
+          format: date
+        contract_end:
+          type: string
+          format: date
+        total_annual_visits:
+          type: integer
+          minimum: 1
+
+    ContractVisitSchedule:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        maintenance_contract_id:
+          type: integer
+          format: int64
+        visit_type:
+          type: string
+          enum: [summer, winter]
+        scheduled_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [draft, confirmed, completed, cancelled]
+      required: [id, maintenance_contract_id, visit_type, scheduled_date, status]
+
+    MaintenanceRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        customer_id:
+          type: integer
+          format: int64
+        location_id:
+          type: integer
+          format: int64
+        technician_id:
+          type: integer
+          format: int64
+          nullable: true
+        maintenance_contract_id:
+          type: integer
+          format: int64
+          nullable: true
+        request_type:
+          type: string
+          enum: [standard, seasonal]
+        priority:
+          type: string
+          enum: [normal, emergency]
+        status:
+          type: string
+          enum: [new, assigned, in_progress, pending_spare_parts, completed, cancelled, reassigned]
+        issue_description:
+          type: string
+        preferred_schedule_at:
+          type: string
+          format: date-time
+        requires_dual_technicians:
+          type: boolean
+        dispatcher_notes:
+          type: string
+          nullable: true
+        visit_assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisitAssignment'
+        created_at:
+          type: string
+          format: date-time
+      required: [id, customer_id, location_id, request_type, priority, status, issue_description]
+
+    MaintenanceRequestCreateRequest:
+      type: object
+      required: [customer_id, location_id, request_type, priority, issue_description]
+      properties:
+        customer_id:
+          type: integer
+          format: int64
+        location_id:
+          type: integer
+          format: int64
+        maintenance_contract_id:
+          type: integer
+          format: int64
+          nullable: true
+        request_type:
+          type: string
+          enum: [standard, seasonal]
+        priority:
+          type: string
+          enum: [normal, emergency]
+        issue_description:
+          type: string
+        preferred_schedule_at:
+          type: string
+          format: date-time
+        requires_dual_technicians:
+          type: boolean
+          default: false
+        dispatcher_notes:
+          type: string
+          nullable: true
+
+    AssignTechnicianRequest:
+      type: object
+      required: [scheduled_at]
+      properties:
+        technician_id:
+          type: integer
+          format: int64
+          description: Main technician to assign.
+        assistant_technician_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Optional second technician for large or complex jobs.
+        scheduled_at:
+          type: string
+          format: date-time
+
+    VisitAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        maintenance_request_id:
+          type: integer
+          format: int64
+        technician_id:
+          type: integer
+          format: int64
+        assignment_role:
+          type: string
+          enum: [primary, assistant]
+        scheduled_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [scheduled, in_progress, completed, cancelled]
+      required: [id, maintenance_request_id, technician_id, assignment_role, scheduled_at, status]
+
+    UpdateRequestStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [new, assigned, in_progress, pending_spare_parts, completed, cancelled, reassigned]
+        note:
+          type: string
+          nullable: true
+
+    SparePartRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        maintenance_request_id:
+          type: integer
+          format: int64
+        part_name:
+          type: string
+        part_image_url:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, approved, fulfilled, rejected]
+      required: [id, maintenance_request_id, part_name, part_image_url, status]
+
+    SparePartRequestCreateRequest:
+      type: object
+      required: [part_name, part_image_url]
+      properties:
+        part_name:
+          type: string
+        part_image_url:
+          type: string
+        notes:
+          type: string
+          nullable: true
+
+    RequestReport:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        maintenance_request_id:
+          type: integer
+          format: int64
+        technician_id:
+          type: integer
+          format: int64
+        report_text:
+          type: string
+        ac_status:
+          type: string
+        gps_coordinates:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required: [id, maintenance_request_id, technician_id, report_text, ac_status]
+
+    RequestReportCreateRequest:
+      type: object
+      required: [report_text, ac_status]
+      properties:
+        report_text:
+          type: string
+        ac_status:
+          type: string
+          enum: [working, needs_service, not_working]
+        gps_coordinates:
+          type: string
+          nullable: true
+
+    PaginatedCustomerResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Customer'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    PaginatedContractResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaintenanceContract'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    PaginatedRequestResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaintenanceRequest'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
