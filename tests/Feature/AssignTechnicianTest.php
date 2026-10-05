@@ -38,4 +38,20 @@ class AssignTechnicianTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('technician_id');
     }
+    public function test_technician_cannot_assign_technician(): void
+{
+    $request = MaintenanceRequest::factory()->create(['status' => 'new']);
+    $tech = User::factory()->technician()->create();
+    $otherTech = User::factory()->technician()->create();
+
+    $this->actingAs($tech)
+        ->postJson("/api/v1/requests/{$request->id}/assign", ['technician_id' => $otherTech->id])
+        ->assertForbidden();
+
+    // تأكيد إن الداتا بيز لاتزال بوضعها الأصلي ولم تتغير
+    $this->assertDatabaseMissing('maintenance_requests', [
+        'id' => $request->id,
+        'technician_id' => $otherTech->id,
+    ]);
+}
 }
